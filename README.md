@@ -1,34 +1,42 @@
-[![progress-banner](https://backend.codecrafters.io/progress/redis/08ab21a3-d663-43c9-9b0e-7e2941c5f86e)](https://app.codecrafters.io/users/codecrafters-bot?r=2qF)
+# redis-rust
 
-This is a starting point for Rust solutions to the
-["Build Your Own Redis" Challenge](https://codecrafters.io/challenges/redis).
+A minimal async Redis server in Rust. Speaks the [RESP](https://redis.io/docs/latest/develop/reference/protocol-spec/) protocol over TCP, handles connections concurrently with Tokio, and shares an in-memory store across them. Works with the real `redis-cli`.
 
-In this challenge, you'll build a toy Redis clone that's capable of handling
-basic commands like `PING`, `SET` and `GET`. Along the way we'll learn about
-event loops, the Redis protocol and more.
+Built from the [CodeCrafters "Build Your Own Redis"](https://codecrafters.io/challenges/redis) challenge.
 
-**Note**: If you're viewing this repo on GitHub, head over to
-[codecrafters.io](https://codecrafters.io) to try the challenge.
+## Commands
 
-# Passing the first stage
+| Command | Behavior |
+| --- | --- |
+| `PING [msg]` | Replies `+PONG` (or echoes `msg` as a bulk string) |
+| `ECHO <msg>` | Echoes the argument as a bulk string |
+| `SET <key> <value>` | Stores the value, replies `+OK` |
+| `GET <key>` | Returns the stored value, or `$-1\r\n` (nil) if missing |
 
-The entry point for your Redis implementation is in `src/main.rs`. Study and
-uncomment the relevant code, and push your changes to pass the first stage:
+## How it works
+
+- **Tokio runtime** — every accepted connection is handed to a spawned task; a single `TcpListener` fans out concurrent clients.
+- **Shared state** — keys live in an `Arc<Mutex<HashMap<String, String>>>` so all tasks read/write the same store.
+- **RESP parser** — hand-written: reads `*N\r\n` for the array length, then `$len\r\n<data>\r\n` for each bulk-string argument.
+- **No external Redis libs** — the protocol is implemented from the spec up.
+
+## Run it
 
 ```sh
-git commit -am "pass 1st stage" # any msg
-git push origin master
+cargo build --release
+./your_program.sh
+# or: cargo run --release
 ```
 
-That's all!
+Then in another shell:
 
-# Stage 2 & beyond
+```sh
+redis-cli -p 6379 PING                # PONG
+redis-cli -p 6379 SET hello world     # OK
+redis-cli -p 6379 GET hello           # "world"
+redis-cli -p 6379 ECHO "ping me"      # "ping me"
+```
 
-Note: This section is for stages 2 and beyond.
+## Stack
 
-1. Ensure you have `cargo (1.88)` installed locally
-1. Run `./your_program.sh` to run your Redis server, which is implemented in
-   `src/main.rs`. This command compiles your Rust project, so it might be slow
-   the first time you run it. Subsequent runs will be fast.
-1. Commit your changes and run `git push origin master` to submit your solution
-   to CodeCrafters. Test output will be streamed to your terminal.
+Rust 2021 · `tokio` (full) · `bytes` · `anyhow`
